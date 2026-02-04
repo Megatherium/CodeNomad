@@ -1074,12 +1074,6 @@ const InstanceShell2: Component<InstanceShellProps> = (props) => {
       },
     ]
 
-    createEffect(() => {
-      const currentExpanded = new Set(rightPanelExpandedItems())
-      if (sections.every((section) => currentExpanded.has(section.id))) return
-      setRightPanelExpandedItems(sections.map((section) => section.id))
-    })
-
     const handleAccordionChange = (values: string[]) => {
       setRightPanelExpandedItems(values)
     }
