@@ -30,6 +30,9 @@ const InstanceWelcomeView: Component<InstanceWelcomeViewProps> = (props) => {
   )
   const [renameTarget, setRenameTarget] = createSignal<{ id: string; title: string; label: string } | null>(null)
   const [isRenaming, setIsRenaming] = createSignal(false)
+  const [rightPanelWidth, setRightPanelWidth] = createSignal(320)
+  const [isResizing, setIsResizing] = createSignal(false)
+  let containerRef: HTMLDivElement | undefined
 
   const parentSessions = () => getParentSessions(props.instance.id)
   const isFetchingSessions = createMemo(() => Boolean(loading().fetchingSessions.get(props.instance.id)))
@@ -210,39 +213,41 @@ const InstanceWelcomeView: Component<InstanceWelcomeViewProps> = (props) => {
     scrollToIndex(nextIndex)
   }
  
-   onMount(() => {
-    window.addEventListener("keydown", handleKeyDown)
-
-    onCleanup(() => {
-      window.removeEventListener("keydown", handleKeyDown)
-    })
-  })
-
   onMount(() => {
-    const mediaQuery = window.matchMedia("(min-width: 1024px)")
-    const handleMediaChange = (matches: boolean) => {
-      setIsDesktopLayout(matches)
-      if (matches) {
-        closeInstanceInfoOverlay()
-      }
-    }
+     window.addEventListener("keydown", handleKeyDown)
 
-    const listener = (event: MediaQueryListEvent) => handleMediaChange(event.matches)
+     onCleanup(() => {
+       window.removeEventListener("keydown", handleKeyDown)
+       document.removeEventListener("mousemove", handleResize)
+       document.removeEventListener("mouseup", stopResize)
+     })
+   })
 
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", listener)
-      onCleanup(() => {
-        mediaQuery.removeEventListener("change", listener)
-      })
-    } else {
-      mediaQuery.addListener(listener)
-      onCleanup(() => {
-        mediaQuery.removeListener(listener)
-      })
-    }
+   onMount(() => {
+     const mediaQuery = window.matchMedia("(min-width: 1024px)")
+     const handleMediaChange = (matches: boolean) => {
+       setIsDesktopLayout(matches)
+       if (matches) {
+         closeInstanceInfoOverlay()
+       }
+     }
 
-    handleMediaChange(mediaQuery.matches)
-  })
+     const listener = (event: MediaQueryListEvent) => handleMediaChange(event.matches)
+
+     if (typeof mediaQuery.addEventListener === "function") {
+       mediaQuery.addEventListener("change", listener)
+       onCleanup(() => {
+         mediaQuery.removeEventListener("change", listener)
+       })
+     } else {
+       mediaQuery.addListener(listener)
+       onCleanup(() => {
+         mediaQuery.removeListener(listener)
+       })
+     }
+
+     handleMediaChange(mediaQuery.matches)
+   })
 
   function formatRelativeTime(timestamp: number): string {
     const seconds = Math.floor((Date.now() - timestamp) / 1000)
@@ -314,9 +319,32 @@ const InstanceWelcomeView: Component<InstanceWelcomeViewProps> = (props) => {
     }
   }
 
+  function startResize(e: MouseEvent) {
+    e.preventDefault()
+    setIsResizing(true)
+    document.addEventListener("mousemove", handleResize)
+    document.addEventListener("mouseup", stopResize)
+  }
+
+  function handleResize(e: MouseEvent) {
+    if (!containerRef) return
+    const containerRect = containerRef.getBoundingClientRect()
+    const newWidth = containerRect.right - e.clientX
+    const minWidth = 280
+    const maxWidth = containerRect.width * 0.45
+    const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth))
+    setRightPanelWidth(clampedWidth)
+  }
+
+  function stopResize() {
+    setIsResizing(false)
+    document.removeEventListener("mousemove", handleResize)
+    document.removeEventListener("mouseup", stopResize)
+  }
+
   return (
     <div class="flex-1 flex flex-col overflow-hidden bg-surface-secondary">
-      <div class="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-auto min-w-0">
+      <div class="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-auto min-w-0" ref={containerRef}>
         <div class="flex-1 flex flex-col gap-4 min-h-0 min-w-0">
           <Show
             when={parentSessions().length > 0}
@@ -509,7 +537,15 @@ const InstanceWelcomeView: Component<InstanceWelcomeViewProps> = (props) => {
           </div>
         </div>
 
-        <div class="hidden lg:block lg:w-80 flex-shrink-0">
+        <div
+          class="hidden lg:flex flex-col cursor-col-resize w-1 transition-colors relative z-10"
+          style={`background-color: ${isResizing() ? 'var(--accent-primary)' : 'var(--border-base)'}`}
+          onMouseDown={startResize}
+        >
+          <div class="flex-1 absolute inset-0 w-2 -left-0.5" />
+        </div>
+
+        <div class="hidden lg:block flex-shrink-0" style={`width: ${rightPanelWidth()}px`}>
           <div class="sticky top-0 max-h-full overflow-y-auto pr-1">
             <InstanceInfo instance={props.instance} />
           </div>
