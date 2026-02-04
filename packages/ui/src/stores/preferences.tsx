@@ -23,6 +23,15 @@ export interface ModelPreference {
   modelId: string
 }
 
+export interface ViewPanelSize {
+  object: string
+  size: string
+}
+
+export interface ViewRecents {
+  [viewName: string]: ViewPanelSize[]
+}
+
 export interface AgentModelSelections {
   [instanceId: string]: Record<string, ModelPreference>
 }
@@ -203,6 +212,7 @@ function normalizeConfig(config?: ConfigData | null): ConfigData {
     recentFolders: (config?.recentFolders ?? []).map((folder) => ({ ...folder })),
     opencodeBinaries: (config?.opencodeBinaries ?? []).map((binary) => ({ ...binary })),
     theme: config?.theme ?? "dark",
+    viewRecents: config?.viewRecents ?? {},
   }
 }
 
@@ -432,6 +442,28 @@ function updateEnvironmentVariables(envVars: Record<string, string>): void {
   updatePreferences({ environmentVariables: envVars })
 }
 
+function updateViewPanelSize(viewName: string, object: string, size: string): void {
+  updateConfig((draft) => {
+    const viewRecents = { ...(draft.viewRecents ?? {}) }
+    const existingSizes = viewRecents[viewName] ?? []
+    const existingIndex = existingSizes.findIndex((item) => item.object === object)
+    if (existingIndex >= 0) {
+      existingSizes[existingIndex] = { object, size }
+    } else {
+      existingSizes.push({ object, size })
+    }
+    viewRecents[viewName] = existingSizes
+    draft.viewRecents = viewRecents
+  })
+}
+
+function getViewPanelSize(viewName: string, object: string): string | undefined {
+  const viewRecents = internalConfig().viewRecents ?? {}
+  const sizes = viewRecents[viewName] ?? []
+  const found = sizes.find((item) => item.object === object)
+  return found?.size
+}
+
 function addEnvironmentVariable(key: string, value: string): void {
   const current = preferences().environmentVariables || {}
   const updated = { ...current, [key]: value }
@@ -509,6 +541,8 @@ interface ConfigContextValue {
   addRecentModelPreference: typeof addRecentModelPreference
   setAgentModelPreference: typeof setAgentModelPreference
   getAgentModelPreference: typeof getAgentModelPreference
+  updateViewPanelSize: typeof updateViewPanelSize
+  getViewPanelSize: typeof getViewPanelSize
 }
 
 const ConfigContext = createContext<ConfigContextValue>()
@@ -544,6 +578,8 @@ const configContextValue: ConfigContextValue = {
   addRecentModelPreference,
   setAgentModelPreference,
   getAgentModelPreference,
+  updateViewPanelSize,
+  getViewPanelSize,
 }
 
 const ConfigProvider: ParentComponent = (props) => {
@@ -610,5 +646,8 @@ export {
   themePreference,
   setThemePreference,
   recordWorkspaceLaunch,
- }
+  updateViewPanelSize,
+  getViewPanelSize,
+  ensureConfigLoaded,
+}
  

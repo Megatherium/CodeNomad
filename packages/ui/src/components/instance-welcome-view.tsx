@@ -11,6 +11,7 @@ import { isMac } from "../lib/keyboard-utils"
 import { showToastNotification } from "../lib/notifications"
 import { useI18n } from "../lib/i18n"
 import { getLogger } from "../lib/logger"
+import { useConfig, ensureConfigLoaded, updateViewPanelSize, getViewPanelSize } from "../stores/preferences"
 const log = getLogger("actions")
 
 
@@ -21,6 +22,7 @@ interface InstanceWelcomeViewProps {
 
 const InstanceWelcomeView: Component<InstanceWelcomeViewProps> = (props) => {
   const { t } = useI18n()
+  const { isLoaded } = useConfig()
   const [isCreating, setIsCreating] = createSignal(false)
   const [selectedIndex, setSelectedIndex] = createSignal(0)
   const [focusMode, setFocusMode] = createSignal<"sessions" | "new-session" | null>("sessions")
@@ -66,6 +68,19 @@ const InstanceWelcomeView: Component<InstanceWelcomeViewProps> = (props) => {
     } else {
       setFocusMode("sessions")
       setSelectedIndex(0)
+    }
+  })
+
+  createEffect(() => {
+    if (!isLoaded() || !containerRef) return
+    const savedSize = getViewPanelSize("instanceWelcome", "instance_information")
+    if (savedSize) {
+      const percentage = Number.parseInt(savedSize.replace("%", ""), 10)
+      const containerWidth = containerRef.getBoundingClientRect().width
+      const minWidth = 280
+      const maxWidth = containerWidth * 0.45
+      const newWidth = Math.max(minWidth, Math.min(maxWidth, (containerWidth * percentage) / 100))
+      setRightPanelWidth(newWidth)
     }
   })
 
@@ -214,6 +229,7 @@ const InstanceWelcomeView: Component<InstanceWelcomeViewProps> = (props) => {
   }
  
   onMount(() => {
+     void ensureConfigLoaded()
      window.addEventListener("keydown", handleKeyDown)
 
      onCleanup(() => {
@@ -340,6 +356,11 @@ const InstanceWelcomeView: Component<InstanceWelcomeViewProps> = (props) => {
     setIsResizing(false)
     document.removeEventListener("mousemove", handleResize)
     document.removeEventListener("mouseup", stopResize)
+    if (containerRef) {
+      const containerWidth = containerRef.getBoundingClientRect().width
+      const percentage = Math.round((rightPanelWidth() / containerWidth) * 100)
+      updateViewPanelSize("instanceWelcome", "instance_information", `${percentage}%`)
+    }
   }
 
   return (

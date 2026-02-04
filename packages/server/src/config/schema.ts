@@ -26,6 +26,16 @@ const PreferencesSchema = z.object({
   listeningMode: z.enum(["local", "all"]).default("local"),
 })
 
+const ViewPanelSizeSchema = z.object({
+  object: z.string(),
+  size: z.string(),
+})
+
+const ViewRecentsSchema = z.record(
+  z.string(),
+  z.array(ViewPanelSizeSchema),
+)
+
 const RecentFolderSchema = z.object({
   path: z.string(),
   lastAccessed: z.number().nonnegative(),
@@ -43,6 +53,7 @@ const ConfigFileSchema = z.object({
   recentFolders: z.array(RecentFolderSchema).default([]),
   opencodeBinaries: z.array(OpenCodeBinarySchema).default([]),
   theme: z.enum(["light", "dark", "system"]).optional(),
+  viewRecents: ViewRecentsSchema.optional(),
 })
 
 const DEFAULT_CONFIG = ConfigFileSchema.parse({})
@@ -56,6 +67,8 @@ export {
   OpenCodeBinarySchema,
   ConfigFileSchema,
   DEFAULT_CONFIG,
+  ViewPanelSizeSchema,
+  ViewRecentsSchema,
 }
 
 export type ModelPreference = z.infer<typeof ModelPreferenceSchema>
